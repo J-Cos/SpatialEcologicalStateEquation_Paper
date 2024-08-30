@@ -4,7 +4,6 @@
 
 # Import modules
 import numpy as np
-import matplotlib.pyplot as plt
 import rasterio
 from rasterio.transform import Affine
 

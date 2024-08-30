@@ -1,6 +1,5 @@
 # Import modules
 import numpy as np
-import matplotlib.pyplot as plt
 import rasterio
 import time
 import imageio
@@ -9,8 +8,8 @@ from rasterio.plot import show
 from rasterio.plot import show_hist
 
 #specify dataset
-#dataset = rasterio.open("Data/Adirondacks_variables.tif")
-#dataset = rasterio.open("Data/Redwoods_variables.tif")
+dataset = rasterio.open("Data/Adirondacks_variables.tif")
+#dataset = rasterio.open("Data/Redwoods_variables.tif") # NOT USED
 
 dataset.descriptions
 S=dataset.read(1)##[10:200, 10:200]#[2700:3000, 600:900]
@@ -35,8 +34,8 @@ for row in range(S.shape[0]):
 end_time = time.time()
 print("loop took this many hours: ", round((end_time-start_time)/60/60, 2))
 
-np.save('Outputs/B_predicted_redwoods.npy', B_predicted)    # .npy extension is added if not given
-d = np.load('Outputs/B_predicted_redwoods.npy')
+np.save('Outputs/B_predicted_adirondacks.npy', B_predicted)    # .npy extension is added if not given
+d = np.load('Outputs/B_predicted_adirondacks.npy')
 np.array_equal(B_predicted, d, equal_nan=True)
 
-imageio.imwrite('Outputs/B_predicted_redwoods.tif', d)
+imageio.imwrite('Outputs/B_predicted_adirondacks.tif', d)
