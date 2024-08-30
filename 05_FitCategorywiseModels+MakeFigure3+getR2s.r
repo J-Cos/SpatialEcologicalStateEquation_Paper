@@ -78,8 +78,11 @@ lm(EVI~ID, data=cat_vals) %>% summary
 lm(EVI~ID, data=cat_vals) %>% confint
 
 ######################
-#Make panel A
+#Make panel B
 ######################
+cat_vals<-cat_vals %>%
+    mutate(dev_abs=abs(dev))
+
 PanelA<-ggplot(cat_vals)+
     geom_vline(xintercept=0, linetype=2)+
     geom_boxplot(aes(x=dev, y=ID, color=ID))+
@@ -88,11 +91,17 @@ PanelA<-ggplot(cat_vals)+
     theme( axis.text.y=element_blank(), axis.ticks.y=element_blank())+
     labs(x ="Deviation", y = "")
 
-lm(dev~1+ID, data=cat_vals) %>% summary
-lm(dev~1+ID, data=cat_vals) %>% confint
+#absolute deviation relative to wilderness
+lm(dev_abs~1+ID, data=cat_vals) %>% summary
+lm(dev_abs~1+ID, data=cat_vals) %>% confint
+aov(dev_abs~ID, data=cat_vals) %>% confint
+
+# signed deviation  relative to zero
+lm(dev~ID-1, data=cat_vals) %>% summary
+lm(dev~ID-1, data=cat_vals) %>% confint
 
 ######################
-#Make panel B
+#Make panel A
 ######################
 rsqs <- cat_vals %>%
     group_by(ID) %>%
@@ -110,7 +119,8 @@ PanelB<-cat_vals %>%
         facet_wrap(~ID)+
         scale_fill_viridis()+
         theme_classic()+
-        labs(x="Observed biomass (scaled)", y="Predicted biomass (scaled)")
+        labs(x="Observed biomass (scaled)", y="Predicted biomass (scaled)")+
+        labs(fill = "Number\nof pixels")
 
 ######################
 #Make panel C
@@ -184,7 +194,7 @@ PanelC<-cor_df %>%
 
 
 #####################
-# Mkae panel D
+# Make R2 data frame
 # requires category-wise MLMs and LMs
 ########################
 getTestTrainList<-function(split, data) {
@@ -258,29 +268,19 @@ rlm<-lm(b~n*s*EVI,
 p_rlm<-predict(rlm, r_split[["test"]])
 rsqs<-rbind(rsqs, c("Resource Management", rsq(p_rlm, r_split[["test"]]$b), NA, "LM"))
 
-
-PanelD<-rsqs %>%
-    mutate(rsq=as.numeric(rsq)) %>%
-    group_by(model) %>%
-    mutate(varProp=rsq/max(rsq)) %>%
-    ggplot(data=.) +
-        geom_line(aes(y=varProp, x=ID, linetype=model, group=model))+
-        theme_classic()+
-        ylim(0,1)+
-        labs(x="", y="Proportion of maximum\nvariance explained for\nany land category")+ 
-        guides(linetype=guide_legend(title="Prediction process"))
+#save r2 dataframe
+saveRDS(select(rsqs, !rsq_plot), "Outputs/R2dataframe.RDS")
 
 ######################
 #Save figure
 ######################
 png(file.path("Figures", paste0("Figure3.png")), height = 10, width = 10, units = 'in', res = 300)
 cowplot::ggdraw()+
-    cowplot::draw_plot(PanelB, x=0.035, y=0.75, width=0.93, height=0.25)+
-    cowplot::draw_plot(PanelA, x=0.06, y=0.5, width=0.95, height=0.25)+
-    cowplot::draw_plot(PanelC, x=0.04, y=0.25, width=0.77, height=0.25)+
-    cowplot::draw_plot(PanelD, x=0, y=0, width=0.98, height=0.25)+
-    cowplot::draw_plot_label(   label = c("A", "B", "C", "D"), 
+    cowplot::draw_plot(PanelB, x=0.035, y=0.66, width=0.93, height=0.33)+
+    cowplot::draw_plot(PanelA, x=0.06, y=0.33, width=0.95, height=0.33)+
+    cowplot::draw_plot(PanelC, x=0.04, y=0, width=0.77, height=0.33)+
+    cowplot::draw_plot_label(   label = c("A", "B", "C"), 
                         size = 15, 
-                        x = c(0, 0, 0, 0), 
-                        y = c(1, 0.75, 0.5, 0.25))
+                        x = c(0, 0, 0), 
+                        y = c(1, 0.66, 0.33))
 dev.off()

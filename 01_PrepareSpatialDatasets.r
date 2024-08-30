@@ -6,11 +6,10 @@ library(tidyverse)
 ##############
 
 # load
-bp<-rast('Outputs/B_predicted.tif')
+bp<-rast('Outputs/B_predicted_adirondacks.tif')
 var<-rast("Data/Adirondacks_variables.tif")
 adir<-vect('Data/apaLandClass202306')
 boundary<-vect('Data/AdirondackParkBoundary2017')
-pop<-rast('Data/Adirondacks_population.tif')
 
 
 # combine rasters
@@ -34,10 +33,9 @@ pop<-mask(pop, boundary) %>% crop(., boundary)
 terra::writeVector(adir, filename="Outputs/LandClasses", overwrite=TRUE)
 terra::writeVector(boundary, filename="Outputs/AdirondacksBoundary", overwrite=TRUE)
 terra::writeRaster(vars, filename="Outputs/AdirondacksEquationVariables.tif", overwrite=TRUE)
-terra::writeRaster(pop, filename="Outputs/AdirondacksPopulation.tif", overwrite=TRUE)
 
 ##############
-# Redwoods
+# Redwoods (not used)
 ##############
 
 # load

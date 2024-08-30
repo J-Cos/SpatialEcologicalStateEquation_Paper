@@ -22,7 +22,7 @@ getPatchRaster<-function(dev=dev, sd, sdlow, patchSize, moreThan=FALSE, lessThan
     return(deviatingPatches)
 }
 
-getProportionPatchesOutsideCategory <- function(patches, LCcategory) {1- sum(terra::extract(patches,LCcategory)$patches) / sum(values(patches))}
+getProportionPatchesInsideCategory <- function(patches, LCcategory) {sum(terra::extract(patches,LCcategory)$patches) / sum(values(patches))}
 
 # load
 vars<-rast('Outputs/AdirondacksEquationVariables.tif') # skipping rf and lm for now
@@ -61,13 +61,15 @@ patches(lt2, directions=4, zeroAsNA=TRUE, allowGaps=FALSE)
 patches(near0, directions=4, zeroAsNA=TRUE, allowGaps=FALSE)
 
 #get proportion of patches per category
-getProportionPatchesOutsideCategory(mt1, deg)
-getProportionPatchesOutsideCategory(mt2, deg)
-getProportionPatchesOutsideCategory(lt1, wilderness)
-getProportionPatchesOutsideCategory(lt2, wilderness)
-getProportionPatchesOutsideCategory(near0, deg)
-
-
+cats=list("deg"=deg, "semi"=semi, "wilderness"=wilderness)
+SDs<-list(lt2, lt1, near0, mt1, mt2)
+df<-data.frame("sd"=c("lt2", "lt1", "near0", "mt1", "mt2"), "deg"=NA, "semi"=NA, "wilderness"=NA)
+for (cat in names(cats)) {
+    for (sd in 1:length(SDs)){
+        df[sd, cat]<-getProportionPatchesInsideCategory(SDs[[sd]], cats[[cat]])
+        print(paste0(cat, " ", sd, " complete"))
+    }
+}
 
 #make plot
 p<-ggplot()+
@@ -76,8 +78,8 @@ p<-ggplot()+
     geom_spatvector(data=deg, alpha=0.1, fill="red")+
     geom_spatvector(data=boundary, linewidth=2, linetype=2, color="black", fill=NA)+
     geom_spatraster(data=groups, aes(fill=sum))+
-    scale_fill_manual(name="Deviation from\nEquation of State\nPrediction (SDs)" , values=c("red", "orange",  "cyan", "blue"), na.translate = FALSE)+
-    geom_spatvector(data=lakes, alpha=1, fill="black")+
+    scale_fill_manual(name="Deviation from\nEquation of State\nPrediction (SDs)" , labels=c("< -2", "< -1", "> 1", "> 2"), values=c("red", "orange",  "cyan", "blue"), na.translate = FALSE)+
+    geom_spatvector(data=lakes, alpha=1, fill="black", color="black")+
     theme_minimal()
 
 p2<-ggplot()+
@@ -87,7 +89,7 @@ p2<-ggplot()+
     geom_spatvector(data=boundary, linewidth=2, linetype=2, color="black", fill=NA)+
     geom_spatraster(data=near0, aes(fill=patches))+
     scale_fill_manual(name="Deviation from\nEquation of State\nPrediction (SDs)" , values=c("transparent", "green"), labels = c("", "Within 1 SD"))+
-    geom_spatvector(data=lakes, alpha=1, fill="black")+
+    geom_spatvector(data=lakes, alpha=1, fill="black", color="black")+
     theme_minimal()
     
 #save plot

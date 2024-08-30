@@ -12,6 +12,21 @@ adir<-vect('Outputs/LandClasses')
 boundary<-vect('Outputs/AdirondacksBoundary')
 
 # create a raster of land categories
+wilderness<-adir[adir$LCCode %in% c(7)] %>% aggregate(dissolve=TRUE)
+semi<-adir[adir$LCCode %in% c(8, 9, 10)] %>% aggregate(dissolve=TRUE)
+deg<-adir[adir$LCCode %in% c(1,2,3,4,5,6,11,12,13)]  %>% aggregate(dissolve=TRUE)
+lakes<-adir[adir$LCCode %in% c(15)]  %>% aggregate(dissolve=TRUE)
+cat_rast<-vars[[1]] %>%
+    mask(x=., mask=wilderness, inverse=TRUE, updatevalue=1) %>%
+    mask(x=., mask=semi, inverse=TRUE, updatevalue=2) %>%
+    mask(x=., mask=deg, inverse=TRUE, updatevalue=3) %>%
+    mask(x=., mask=vars[[1]]) %>%
+    tidyterra::rename("Ecosystem category" = "s")
+cls <- data.frame(id=1:3, cover=c("Wilderness", "Semi-wilderness", "Resource management"))
+levels(cat_rast) <- cls
+
+
+
 wild<-adir[adir$LCCode==7 ] %>% aggregate()
 resman<-adir[adir$LCCode==5 ] %>% aggregate()
 other<-adir[adir$LCCode!=7 & adir$LCCode!=5 ]
@@ -27,8 +42,9 @@ levels(cat_rast) <- cls
 # plot land category raster
 datavispanel<-ggplot() +
     geom_spatraster(data = cat_rast)+
-    scale_fill_manual(values=c("green", "red", "gray"), na.translate = FALSE)+
+    scale_fill_manual(values=c("green", "gray", "red"), na.translate = FALSE)+
     geom_spatvector(data=boundary, linetype=2, color="black", linewidth=1, fill=NA)+ 
+    geom_spatvector(data=lakes, alpha=1, fill="black", color="black")+
     theme_classic()+
     theme( legend.title=element_blank())
 
