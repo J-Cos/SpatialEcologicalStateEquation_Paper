@@ -12,7 +12,7 @@ vars<-rast(paste0("Outputs/AllPredictedVariables_", region, ".tif"))
 adir<-vect('Outputs/LandClasses')
 boundary<-vect('Outputs/AdirondacksBoundary')
 pop<-rast("Outputs/AdirondacksPopulation.tif")
-palette<-c("Wilderness"="blue", "Semi-wilderness"="grey", "Resource Management"="red")
+palette<-c("Wilderness"="#3C5488FF", "Semi-wilderness"="#00A087FF", "Resource management"="#7E6148FF")
 
 #calculate scaled biomasses
 scale<-function(lyr) {
@@ -24,7 +24,7 @@ vars[['b_scaled']]<-scale(vars[['b']])
 vars[['B_predicted_scaled']]<-scale(vars[['B_predicted']])
 
 #calculate deviation
-vars[['dev']]<-vars[['B_predicted_scaled']]-vars[['b_scaled']]
+vars[['dev']]<-vars[['b_scaled']]- vars[['B_predicted_scaled']]
 
 #get polygons on land uses to produce inofrmative map
 wilderness<-adir[adir$LCCode %in% c(7)] %>% aggregate(dissolve=TRUE)
@@ -36,11 +36,11 @@ values(cats)<-data.frame(names=c("w", "s", "d", "l"))
 land_cats<-cats[cats$names!="l"]
 
 # create dataframe of pixels categorised by land category
-cat_vals<-terra::extract(vars, land_cats, weights=TRUE) %>%
+cat_vals<-terra::extract(vars, land_cats, weights=TRUE, cells=TRUE) %>%
     filter(weight>0.99) %>%
     filter(!is.na(s)) %>%
     mutate(ID=as.factor(ID)) %>%
-    mutate(ID = fct_recode(ID, "Wilderness"="1", "Semi-wilderness"="2", "Resource Management"="3"))
+    mutate(ID = fct_recode(ID, "Wilderness"="1", "Semi-wilderness"="2", "Resource management"="3"))
 
 # check average biomass across land use categories
 #biomass
@@ -51,6 +51,7 @@ cat_vals %>%
     )
 lm(b~ID, data=cat_vals) %>% summary
 lm(b~ID, data=cat_vals) %>% confint
+
 #predicted biomass
 cat_vals %>%
     group_by(ID) %>%
@@ -85,11 +86,14 @@ cat_vals<-cat_vals %>%
 
 PanelA<-ggplot(cat_vals)+
     geom_vline(xintercept=0, linetype=2)+
-    geom_boxplot(aes(x=dev, y=ID, color=ID))+
+    geom_violin(aes(x=dev, y=ID, fill=ID, color=ID), show.legend=FALSE)+
+    scale_fill_manual(values=palette, name = "Land Category")+
     scale_color_manual(values=palette, name = "Land Category")+
     theme_classic()+
-    theme( axis.text.y=element_blank(), axis.ticks.y=element_blank())+
-    labs(x ="Deviation", y = "")
+    theme( 
+        axis.text.y=element_blank(), 
+        axis.ticks.y=element_blank())+
+    labs(x ="Deviation from prediction (z-score)", y = "")
 
 #absolute deviation relative to wilderness
 lm(dev_abs~1+ID, data=cat_vals) %>% summary
@@ -99,6 +103,31 @@ aov(dev_abs~ID, data=cat_vals) %>% confint
 # signed deviation  relative to zero
 lm(dev~ID-1, data=cat_vals) %>% summary
 lm(dev~ID-1, data=cat_vals) %>% confint
+
+# signed deviation  relative to wilderness
+lm(dev~ID, data=cat_vals) %>% summary
+lm(dev~ID, data=cat_vals) %>% confint
+
+################################################################
+#test subsamples for spatial autocorrelation
+# draft code - to be developed in revision
+# comparing to wilderness deviation in line with approach of using ndvi from PAs
+#can make this shift throughout to deal with artifact?
+    test<-function(numTests, n) {
+        sample_l<-list()
+        sample_v<-c()
+        for (i in 1:numTests){
+            sample<-sample(nrow(cat_vals), n)
+            #sample_v[i]<-summary(lm(dev_abs~1+ID, data=cat_vals[sample,]))$coefficients[3,4]
+            #sample_v[i]<-summary(lm(dev~ID-1, data=cat_vals[sample,]))$coefficients[3,4]
+            sample_v[i]<-summary(lm(dev~ID, data=cat_vals[sample,]))$coefficients[3,4]
+            sample_l[[i]]<-summary(lm(dev~ID, data=cat_vals[sample,]))
+
+        }
+        return(list(sample_l, sum(sample_v<0.05)/length(sample_v)))
+    }
+    test(numTests=1000, n=nrow(cat_vals)*0.01)
+###################################################################
 
 ######################
 #Make panel A
@@ -112,15 +141,19 @@ rsqs <- cat_vals %>%
 PanelB<-cat_vals %>%
     ggplot(data=., aes(x=b_scaled, y=B_predicted_scaled, shape=ID)) +
         xlim(-5,5) + ylim(-5,5)+
-        geom_hex() +
+        geom_hex()+#show.legend=FALSE) +
         geom_smooth(method="lm", aes(color=ID), size=2, linetype=2, show.legend=FALSE)+
         scale_color_manual(values=palette)+
         geom_label(data=rsqs, aes(label=rsq_plot), x=3.5, y=-3.5) +
         facet_wrap(~ID)+
         scale_fill_viridis()+
         theme_classic()+
-        labs(x="Observed biomass (scaled)", y="Predicted biomass (scaled)")+
-        labs(fill = "Number\nof pixels")
+        labs(x="Observed biomass (z-score)", y="Predicted biomass (z-score)")+
+        labs(fill = "# pixels")+
+        theme(
+            strip.background=element_blank(),
+            strip.text=element_text(size=16)
+        )
 
 ######################
 #Make panel C
@@ -181,17 +214,21 @@ PanelC<-cor_df %>%
     mutate(w=as.numeric(w)^2) %>%
     mutate(output_modEsts=as.numeric(output_modEsts)) %>%
     mutate(cat=as.factor(cat)) %>%
-    mutate("Land Category" = fct_recode(cat, "Wilderness"="w", "Semi-wilderness"="s", "Resource Management"="r")) %>%
+    mutate("Land Category" = fct_recode(cat, "Wilderness"="w", "Semi-wilderness"="s", "Resource management"="r")) %>%
     ggplot(data=.) +
-        geom_hline(yintercept=wTotal, color="blue") +
-        geom_hline(yintercept=sTotal, color="grey") +
-        geom_hline(yintercept=rTotal, color="red") +
-        geom_line(aes(y=output_modEsts, x=w, color=`Land Category`, group=cat),size=1.5, show.legend=FALSE)+
+        geom_hline(yintercept=wTotal, color="#3C5488FF") +
+        geom_hline(yintercept=sTotal, color="#00A087FF") +
+        geom_hline(yintercept=rTotal, color="#7E6148FF") +
+        geom_line(aes(y=output_modEsts, x=w, color=`Land Category`, group=cat),size=1.5)+#, show.legend=FALSE)+
         scale_color_manual(values=palette)+
         ylim(0,0.4)+
         theme_classic()+
-        labs(x="Local window size (# pixels)", y="Correlation")
-
+        labs(x="Local window size (# pixels)", y="Correlation")+
+        theme(
+            legend.title=element_blank(),
+            legend.position = c(0.5, 0.2),
+            legend.text=element_text(size=12)
+            )
 
 #####################
 # Make R2 data frame
@@ -276,11 +313,11 @@ saveRDS(select(rsqs, !rsq_plot), "Outputs/R2dataframe.RDS")
 ######################
 png(file.path("Figures", paste0("Figure3.png")), height = 10, width = 10, units = 'in', res = 300)
 cowplot::ggdraw()+
-    cowplot::draw_plot(PanelB, x=0.035, y=0.66, width=0.93, height=0.33)+
-    cowplot::draw_plot(PanelA, x=0.06, y=0.33, width=0.95, height=0.33)+
-    cowplot::draw_plot(PanelC, x=0.04, y=0, width=0.77, height=0.33)+
+    cowplot::draw_plot(PanelB, x=0, y=0.5, width=1, height=0.5)+
+    cowplot::draw_plot(PanelA, x=0.0, y=0, width=0.5, height=0.5)+
+    cowplot::draw_plot(PanelC, x=0.5, y=0, width=0.5, height=0.5)+
     cowplot::draw_plot_label(   label = c("A", "B", "C"), 
                         size = 15, 
-                        x = c(0, 0, 0), 
-                        y = c(1, 0.66, 0.33))
+                        x = c(0, 0, 0.5), 
+                        y = c(1, 0.5, 0.5))
 dev.off()

@@ -4,6 +4,7 @@ library(tidyverse)
 library(tidyterra)
 library(cowplot)
 library(viridis)
+library(ggnewscale)
 
 #functions
 scale<-function(lyr) {
@@ -43,9 +44,12 @@ lt1<-getPatchRaster(dev=dev, sd=-1, patchSize=50, lessThan=TRUE)
 lt2<-getPatchRaster(dev=dev, sd=-2, patchSize=50, lessThan=TRUE)
 near0<-getPatchRaster(dev=dev, sd=1, sdlow=-1, patchSize=50, between=TRUE)
 
-groups<-as.factor(sum(c( mt1, mt2, lt1*-1, lt2*-1)))
+groups<-sum(c( mt1, mt2, lt1*-1, lt2*-1))
 groups[groups==0]<-NA
-levels(groups) <- data.frame("ID"=levels(groups)[[1]]$ID, "sum"=c("<-2", "<-1", "NA", ">1", ">2"))
+groups[near0]<-0
+groups<-as.factor(groups)
+
+levels(groups) <- data.frame("ID"=levels(groups)[[1]]$ID, "sum"=c("<-2", "<-1", "within1", ">1", ">2"))
 
 #get polygons on land uses to produce inofrmative map
 wilderness<-adir[adir$LCCode %in% c(7)] %>% aggregate(dissolve=TRUE)
@@ -73,37 +77,76 @@ for (cat in names(cats)) {
 
 #make plot
 p<-ggplot()+
-    geom_spatvector(data=wilderness,fill="blue", alpha=0.1)+
-    geom_spatvector(data=semi, fill="grey" , alpha=0.1)+
-    geom_spatvector(data=deg, alpha=0.1, fill="red")+
-    geom_spatvector(data=boundary, linewidth=2, linetype=2, color="black", fill=NA)+
+    geom_spatvector(data=lakes, alpha=1, fill="white", color="white")+
+    geom_spatvector(data=wilderness,fill="black", color=NA, alpha=0.6)+
+    geom_spatvector(data=semi, fill="black" , color=NA,  alpha=0.3)+
+    geom_spatvector(data=deg, alpha=0.1,color=NA,  fill="black")+
+    #geom_spatraster(data=is.na(dev), aes(fill=b_scaled))+
+    scale_fill_manual(labels=c("TRUE", "FALSE"), values=c("black", "transparent"))+
+    new_scale_fill() +
     geom_spatraster(data=groups, aes(fill=sum))+
-    scale_fill_manual(name="Deviation from\nEquation of State\nPrediction (SDs)" , labels=c("< -2", "< -1", "> 1", "> 2"), values=c("red", "orange",  "cyan", "blue"), na.translate = FALSE)+
-    geom_spatvector(data=lakes, alpha=1, fill="black", color="black")+
-    theme_minimal()
+    scale_fill_manual(name="Biomass deviation\nfrom prediction\n(z-score)" , labels=c(" > 2 less", "> 1 less", "Within 1", "> 1 greater", "> 2 greater"), values=c("red", "#FA7F2E", "#42B540FF", "#5BA2CC", "blue"), na.translate = FALSE)+
+    #new_scale_fill() +
+    #geom_spatraster(data=near0, aes(fill=patches))+
+    #scale_fill_manual(name=element_blank(), values=c("transparent", "#42B540FF"), labels = c("", "Within 1 SD") )+
+    theme_minimal()+
+    theme(legend.position = c(0.1, 0.9))
 
-p2<-ggplot()+
-    geom_spatvector(data=wilderness,fill="blue", alpha=0.1)+
-    geom_spatvector(data=semi, fill="grey" , alpha=0.1)+
-    geom_spatvector(data=deg, alpha=0.1, fill="red")+
-    geom_spatvector(data=boundary, linewidth=2, linetype=2, color="black", fill=NA)+
-    geom_spatraster(data=near0, aes(fill=patches))+
-    scale_fill_manual(name="Deviation from\nEquation of State\nPrediction (SDs)" , values=c("transparent", "green"), labels = c("", "Within 1 SD"))+
-    geom_spatvector(data=lakes, alpha=1, fill="black", color="black")+
-    theme_minimal()
-    
-#save plot
 png(file.path("Figures", paste0("Figure4.png")), height = 10, width = 10, units = 'in', res = 300)
 p
 dev.off()
 
-#alternative
-png(file.path("Figures", paste0("Figure4alt.png")), height = 10, width = 20, units = 'in', res = 300)
+
+
+###########################
+# make supplementary deviation map - truncated at deviations greater or less than 2 sds
+################################
+dev_trunc<-dev
+dev_trunc[dev_trunc>2]<-2
+dev_trunc[dev_trunc< -2]<- -2
+
+
+pa<-ggplot()+
+    geom_spatvector(data=lakes, alpha=1, fill="white", color="white")+
+    geom_spatvector(data=wilderness,fill="black", color=NA, alpha=0.5)+
+    geom_spatraster(data=mask(dev_trunc, wilderness), aes(fill=b_scaled))+
+    scale_fill_viridis(option="turbo", na.value = "transparent", direction=-1)+
+    geom_spatvector(data=boundary, color="black", fill=NA)+
+    theme_minimal()+
+    theme(legend.position="none", plot.title = element_text(hjust = 0.5, size=16))+
+    ggtitle("Wilderness")
+pb<-ggplot()+
+    geom_spatvector(data=lakes, alpha=1, fill="white", color="white")+
+    geom_spatvector(data=semi,fill="black", color=NA, alpha=0.5)+
+    geom_spatraster(data=mask(dev_trunc, semi), aes(fill=b_scaled))+
+    scale_fill_viridis(name="Biomass deviation\nfrom prediction\n(z-score)", option="turbo", na.value = "transparent", direction=-1)+
+    geom_spatvector(data=boundary, color="black", fill=NA)+
+    theme_minimal()+
+    theme(plot.title = element_text(hjust = 0.5, size=16), legend.title.align=0.5)+
+    ggtitle("Semi-wilderness")
+pc<-ggplot()+
+    geom_spatvector(data=lakes, alpha=1, fill="white", color="white")+
+    geom_spatvector(data=deg,fill="black", color=NA, alpha=0.5)+
+    geom_spatraster(data=mask(dev_trunc, deg), aes(fill=b_scaled))+
+    scale_fill_viridis(option="turbo", na.value = "transparent", direction=-1)+
+    geom_spatvector(data=boundary, color="black", fill=NA)+
+    theme_minimal()+
+    theme(legend.position="none", plot.title = element_text(hjust = 0.5, size=16))+
+    ggtitle("Resource management")
+pd<-ggplot()+
+    geom_spatvector(data=boundary, alpha=0.5, color="black", fill="black")+
+    geom_spatvector(data=lakes, fill="white", color="white")+
+    geom_spatraster(data=dev_trunc, aes(fill=b_scaled))+
+    scale_fill_viridis(option="turbo", na.value = "transparent", direction=-1)+
+    theme_minimal()+
+    theme(legend.position="none", plot.title = element_text(hjust = 0.5, size=16))+
+    ggtitle("Adirondack Park")
+
+png(file.path("Figures", paste0("FigureS1.png")), height = 10, width = 10, units = 'in', res = 300)
 cowplot::ggdraw()+
-    cowplot::draw_plot(p, x=0, y=0, width=0.5, height=1)+
-    cowplot::draw_plot(p2, x=0.5, y=0, width=0.5, height=1)+
-    cowplot::draw_plot_label(   label = c("A", "B"), 
-                        size = 15, 
-                        x = c(0, 0.5), 
-                        y = c(1, 1))
+    cowplot::draw_plot(pd, y=0.5, x=0, height=0.5, width=0.5)+
+    cowplot::draw_plot(pa, y=0.5, x=0.5, height=0.5, width=0.5)+
+    cowplot::draw_plot(pb+ theme(legend.position="none"), y=0, x=0, height=0.5, width=0.5)+
+    cowplot::draw_plot(pc, y=0, x=0.5, height=0.5, width=0.5)+
+    cowplot::draw_plot(cowplot::get_legend(pb), y=0.4, x=0, height=1, width=1)
 dev.off()

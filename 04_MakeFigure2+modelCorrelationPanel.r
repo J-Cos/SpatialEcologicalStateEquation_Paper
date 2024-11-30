@@ -20,8 +20,12 @@ makeVariablePanel<-function(variable, title){
         geom_spatraster(data=vars[[variable]])+
         scale_fill_viridis(limits = c(0, max(values(vars[[variable]]), na.rm=TRUE)), na.value = "transparent")+
         geom_spatvector(data=lakes, alpha=1, fill="black", color="black")+
-        labs(fill=title)+
-        theme_minimal()
+        labs(title=title) +
+        theme_minimal()+
+        theme(
+            legend.title=element_blank(),
+            plot.title = element_text(size=16, hjust = 0.5)
+        )
 }
 
 rsq <- function (x, y) cor(x, y) ^ 2
@@ -34,8 +38,8 @@ lakes<-adir[adir$LCCode %in% c(15)]  %>% aggregate(dissolve=TRUE)
 s_panel<-makeVariablePanel('s', "Richness")
 n_panel<-makeVariablePanel('n', "Abundance")
 e_panel<-makeVariablePanel('EVI', "EVI")
-b_panel<-makeVariablePanel('b', "Observed\nBiomass\n(tons)")
-b_eos_panel<-makeVariablePanel('B_predicted', "Predicted\nBiomass\n(unitless)")
+b_panel<-makeVariablePanel('b', "Observed biomass (tons)")
+b_eos_panel<-makeVariablePanel('B_predicted', "Predicted biomass (unitless)")
 b_rf_panel<-makeVariablePanel('B_rf', "Random\nForest\nBiomass")
 b_lm_panel<-makeVariablePanel('B_lm', "Linear\nModel\nBiomass")
 

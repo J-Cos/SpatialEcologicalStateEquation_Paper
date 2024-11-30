@@ -30,7 +30,12 @@ cor_panel<-vars%>%
         theme_classic()+
         xlim(0,11000)+ ylim(0,11000)+
         xlab("Biomass") + ylab("Predicted\nBiomass")+
-        labs(fill = "Number\nof pixels")
+        labs(fill = "# pixels")+
+        theme(
+            strip.background=element_blank(),
+            strip.text=element_text(size=16),
+            legend.position = c(0.95, 0.6),
+        )
 
 
 r2_panel<-r2_df %>%
@@ -39,11 +44,15 @@ r2_panel<-r2_df %>%
     mutate(varProp=rsq/max(rsq)) %>%
     ggplot(data=.) +
         geom_line(aes(y=varProp, x=ID, linetype=model, group=model))+
-        scale_linetype( labels=c("EEOS", "LM", "MLM" ))+
+        #scale_linetype( labels=c("EEOS", "LM", "MLM" ))+
         theme_classic()+
         ylim(0,1)+
+        theme( legend.position="none")+
         labs(x="", y="Proportion of maximum\nvariance explained for\nany land category")+ 
-        guides(linetype=guide_legend(title=""))
+        annotate(geom="text", x=3.1, y=1, label="LM")+
+        annotate(geom="text", x=3.1, y=0.93, label="MLM")+
+        annotate(geom="text", x=3.1, y=0.13, label="EEOS")
+
 
 
 
@@ -51,7 +60,7 @@ r2_panel<-r2_df %>%
 png(file.path("Figures", paste0("Figure5.png")), height = 5, width = 10, units = 'in', res = 300)
 cowplot::ggdraw()+
     cowplot::draw_plot(r2_panel, x=0, y=0.5, width=1, height=0.5)+
-    cowplot::draw_plot(cor_panel, x=0.005, y=0, width=1, height=0.5)+
+    cowplot::draw_plot(cor_panel, x=0.01, y=0, width=1, height=0.5)+
     cowplot::draw_plot_label(   label = c("A", "B"), 
                         size = 15, 
                         x = c(0, 0), 
