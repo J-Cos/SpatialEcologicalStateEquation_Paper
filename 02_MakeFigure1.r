@@ -2,11 +2,66 @@ library(terra)
 library(tidyverse)
 library(tidyterra)
 library(cowplot)
+library(rnaturalearth)
+
+loadData<-function(region){
+    l<-list(
+        cats=terra::vect(file.path("Outputs", region, "LandClasses")),
+        boundary=terra::vect( file.path("Outputs", region, "Boundary")),
+        vars=terra::rast(file.path("Outputs", region, "EquationVariables.tif")))
+    return(l)
+}
+
+getCategoryRaster<-function(data){
+
+    cat_rast<-data[["vars"]][[1]] %>%
+        mask(x=., mask=data[["cats"]][data[["cats"]]$names =="wild"], inverse=TRUE, updatevalue=1) %>%
+        mask(x=., mask=data[["cats"]][data[["cats"]]$names =="semi"], inverse=TRUE, updatevalue=2) %>%
+        mask(x=., mask=data[["cats"]][data[["cats"]]$names =="deg"], inverse=TRUE, updatevalue=3) %>%
+        mask(x=., mask=data[["cats"]][!data[["cats"]]$names %in% c("wild", "semi", "deg")], inverse=TRUE, updatevalue=1000) %>%
+        mask(x=., mask= data[["vars"]][[1]] ) %>%
+        tidyterra::rename("Ecosystem category" = "s")
+    return(cat_rast)
+}
+
 
 ############################
 # Adirondacks
 ############################
 # load
+a<-loadData("Adirondacks")
+r<-loadData("Redwoods")
+y<-loadData("Yellowstone")
+
+
+getCategoryRaster(a) %>% plot
+
+
+
+
+cat_rast<-a[["vars"]][[1]] %>%
+
+    mask(x=., mask= a[["vars"]][[1]] ) %>%
+    tidyterra::rename("Ecosystem category" = "s")
+
+datavispanel<-ggplot() +
+    geom_spatraster(data = cat_rast)+
+    scale_fill_manual(values=c("#3C5488FF", "#00A087FF", "#7E6148FF"), na.translate = FALSE)+
+    #geom_spatvector(data=boundary, linetype=2, color="black", linewidth=1, fill=NA)+ 
+    geom_spatvector(data=lakes, alpha=1, fill="black", color="black")+
+    theme_minimal() +
+    theme(
+        legend.position = c(0.15, 0.10),
+        legend.title=element_blank(),
+        legend.key.size = unit(10, "pt"))
+
+
+
+
+
+
+
+
 vars<-rast('Outputs/AdirondacksEquationVariables.tif')
 adir<-vect('Outputs/LandClasses')
 boundary<-vect('Outputs/AdirondacksBoundary')

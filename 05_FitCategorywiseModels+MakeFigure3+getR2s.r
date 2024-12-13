@@ -6,12 +6,15 @@ library(viridis)
 library(ranger)
 
 region<-"Adirondacks"
+region<-"Yellowstone"
+region<-"Redwoods"
+
+
 
 # load
 vars<-rast(paste0("Outputs/AllPredictedVariables_", region, ".tif"))
-adir<-vect('Outputs/LandClasses')
-boundary<-vect('Outputs/AdirondacksBoundary')
-pop<-rast("Outputs/AdirondacksPopulation.tif")
+land_cats<-vect(paste0('Outputs/',region,'/LandClasses'))
+boundary<-vect(paste0('Outputs/', region, '/Boundary'))
 palette<-c("Wilderness"="#3C5488FF", "Semi-wilderness"="#00A087FF", "Resource management"="#7E6148FF")
 
 #calculate scaled biomasses
@@ -39,6 +42,7 @@ land_cats<-cats[cats$names!="l"]
 cat_vals<-terra::extract(vars, land_cats, weights=TRUE, cells=TRUE) %>%
     filter(weight>0.99) %>%
     filter(!is.na(s)) %>%
+    filter(!is.na(e)) %>%
     mutate(ID=as.factor(ID)) %>%
     mutate(ID = fct_recode(ID, "Wilderness"="1", "Semi-wilderness"="2", "Resource management"="3"))
 
@@ -73,10 +77,10 @@ lm(n~ID, data=cat_vals) %>% confint
 cat_vals %>%
     group_by(ID) %>%
     summarise(
-        mean(EVI), sd(EVI)
+        mean(e), sd(e)
     )
-lm(EVI~ID, data=cat_vals) %>% summary
-lm(EVI~ID, data=cat_vals) %>% confint
+lm(e~ID, data=cat_vals) %>% summary
+lm(e~ID, data=cat_vals) %>% confint
 
 ######################
 #Make panel B
@@ -252,12 +256,12 @@ s_split<-cat_vals %>%
     filter(ID=="Semi-wilderness") %>%
     getTestTrainList(split=TestSamplePercent, data=.)
 r_split<-cat_vals %>%
-    filter(ID=="Resource Management") %>%
+    filter(ID=="Resource management") %>%
     getTestTrainList(split=TestSamplePercent, data=.)
 
 # fit random forests
 set.seed(1)
-wrf<-ranger::ranger(b~n+s+EVI,
+wrf<-ranger::ranger(b~n+s+e,
     data = w_split[["train"]], 
     importance = 'permutation',
     scale.permutation.importance = TRUE,
@@ -268,7 +272,7 @@ rsqs<-rbind(rsqs, c("Wilderness", rsq(p_wrf$predictions, w_split[["test"]]$b), N
 vip::vip(wrf)
 
 set.seed(1)
-srf<-ranger::ranger(b~n+s+EVI,
+srf<-ranger::ranger(b~n+s+e,
     data = s_split[["train"]], 
     importance = 'permutation',
     scale.permutation.importance = TRUE,
@@ -279,31 +283,31 @@ rsqs<-rbind(rsqs, c("Semi-wilderness", rsq(p_srf$predictions, s_split[["test"]]$
 vip::vip(srf)
 
 set.seed(1)
-rrf<-ranger::ranger(b~n+s+EVI,
+rrf<-ranger::ranger(b~n+s+e,
     data = r_split[["train"]], 
     importance = 'permutation',
     scale.permutation.importance = TRUE,
     mtry = 2,
     num.trees=1001)
 p_rrf<-predict(rrf, r_split[["test"]])
-rsqs<-rbind(rsqs, c("Resource Management", rsq(p_rrf$predictions, r_split[["test"]]$b), NA, "RF"))
+rsqs<-rbind(rsqs, c("Resource management", rsq(p_rrf$predictions, r_split[["test"]]$b), NA, "RF"))
 vip::vip(rrf)
 
 # fit linear models
-wlm<-lm(b~n*s*EVI,
+wlm<-lm(b~n*s*e,
     data = w_split[["train"]])
 p_wlm<-predict(wlm, w_split[["test"]])
 rsqs<-rbind(rsqs, c("Wilderness", rsq(p_wlm, w_split[["test"]]$b), NA, "LM"))
 
-slm<-lm(b~n*s*EVI,
+slm<-lm(b~n*s*e,
     data = s_split[["train"]])
 p_slm<-predict(slm, s_split[["test"]])
 rsqs<-rbind(rsqs, c("Semi-wilderness", rsq(p_slm, s_split[["test"]]$b), NA, "LM"))
 
-rlm<-lm(b~n*s*EVI,
+rlm<-lm(b~n*s*e,
     data = r_split[["train"]])
 p_rlm<-predict(rlm, r_split[["test"]])
-rsqs<-rbind(rsqs, c("Resource Management", rsq(p_rlm, r_split[["test"]]$b), NA, "LM"))
+rsqs<-rbind(rsqs, c("Resource management", rsq(p_rlm, r_split[["test"]]$b), NA, "LM"))
 
 #save r2 dataframe
 saveRDS(select(rsqs, !rsq_plot), "Outputs/R2dataframe.RDS")
