@@ -32,20 +32,27 @@ lm(log(b)~log(B_rf), fit_df) %>% summary
 lm(log(b)~log(B_lm), fit_df) %>% summary
 
 #test r2
-rss<-sum(  (log(fit_df$b) - log(fit_df$B_predicted))^2, na.rm=TRUE)
+rss<-sum(  (log(fit_df$b) - log(fit_df$B_rf))^2, na.rm=TRUE)
 tss<-sum((log(fit_df$b)-mean(log(fit_df$b)))^2)
 1-(rss/tss)
 
+model <- c(
+  B_lm = "LM",
+  B_predicted = "EEOS",
+  B_rf = "MLM",
+  e = "Productivity")
 
 
 fig3a<-long_df %>%
     ggplot(aes(x=log(b), y=log(value)))+
         geom_hex() +
-        scale_fill_viridis()+
-        geom_smooth(method="lm", color="black")+
+        scale_fill_viridis(name="Number\nof pixels")+
+        geom_smooth(method="lm", aes(color=name), show.legend=FALSE)+
+        scale_color_manual(values=palette_models2)+
         geom_abline(linetype=2)+
         xlim(6.5, 17)+ylim(6.5, 17)+
-        facet_wrap(~name)+
+        facet_wrap(~name, labeller = labeller(name = model))+
+        xlab("log(Observed)") + ylab("log(Predicted)")+
         theme_classic()
 #ggsave("Figures/Figure2.png")
 
@@ -64,48 +71,6 @@ fit_df %>%
         geom_abline(linetype=2)+
         xlim(7, 17)+ylim(7, 17)+
         facet_wrap(~status)
-
-
-
-# mask model difference and sample size plot
-#regular samples of increasing size
-set.seed(2)
-sample_l<-list()
-df<-data.frame(sampleSize=NA, "t"=NA, "pval"=NA, "t_lm"=NA, "t_rf"=NA, "t_mte"=NA)
-n<-1
-numcells<-dim(vars)[1]*dim(vars)[2]
-for (i in  seq(from=numcells*0.0001, to=numcells*0.1, by=numcells*0.0005)) {
-    sample_l[[n]]<-spatSample(vars, i, "regular", na.rm=FALSE, replace=FALSE) 
-    df[n,]<-c(
-        i,
-        summary(lm(dev~mask, sample_l[[n]]))$coef["mask", "t value"],
-        summary(lm(dev~mask, sample_l[[n]]))$coef["mask", "Pr(>|t|)"],
-        summary(lm(dev_lm~mask, sample_l[[n]]))$coef["mask", "t value"],
-        summary(lm(dev_rf~mask, sample_l[[n]]))$coef["mask", "t value"],
-        summary(lm(dev_mte~mask, sample_l[[n]]))$coef["mask", "t value"]
-
-    )
-    print(n)
-    n<-n+1
-}
-
-fig3b<-df %>%
-    #mutate(Significant=pval<0.05) %>%
-    select(-pval)%>%
-    pivot_longer(-sampleSize, names_to="model", values_to="t") %>%
-    ggplot(aes(y=t, x=sampleSize, color=model))+
-        geom_point(alpha=0.5)+
-        geom_smooth()+
-        geom_vline(xintercept=numcells*0.01, linetype=2)+
-        xlim(0, NA)+ylim(0, NA)+
-        theme_classic()
-
-
-sample_l[[50]] %>%
-    ggplot(aes(x=mask, y=dev))+
-        geom_point()+
-        geom_smooth(method="lm")
-
 
 # get difference in models panel
 
@@ -135,17 +100,19 @@ site_df<-values(vars, dataframe=TRUE) %>%
 
 fig3c<-rbind(
         "EEOS"=TukeyHSD(aov(dev~status, site_df))$status[,"diff"],
-        "MTE" = TukeyHSD(aov(dev_mte~status, site_df))$status[,"diff"],
+        "Productivity" = TukeyHSD(aov(dev_mte~status, site_df))$status[,"diff"],
         "MLM" = TukeyHSD(aov(dev_rf~status, site_df))$status[,"diff"],
         "LM" = TukeyHSD(aov(dev_lm~status, site_df))$status[,"diff"]
     ) %>%
         as_data_frame()%>%
-        cbind("model"=c("EEOS", "MTE", "MLM", "LM"))%>%
+        cbind("model"=c("EEOS", "Productivity", "MLM", "LM"))%>%
         as_tibble %>%
-        pivot_longer(-model, names_to="comparison", values_to="difference") %>%
+        pivot_longer(-model, names_to="comparison", values_to="Difference in deviation (Tukeys HSD)") %>%
         ggplot()+
-            geom_line(aes(x=comparison, y=difference, color=model, group=model))+
-            theme_classic()
+            geom_line(aes(x=comparison, y=`Difference in deviation (Tukeys HSD)`, color=model, group=model))+
+            scale_color_manual(name="Model", values=palette_models1)+
+            theme_classic()+
+            xlab("")
 
 
 model.sel(
@@ -155,7 +122,5 @@ m2<-lm(dev~mask*status, site_df))
 summary(m1)
 
 #make combined figure
-bottom_row <- cowplot::plot_grid(fig3b, fig3c, labels = c('B', 'C'), label_size = 12, ncol=1)
-cowplot::plot_grid(fig3a, bottom_row, labels = c('A', ''), label_size = 12, ncol = 1)
+cowplot::plot_grid(fig3a, fig3c, labels = c('A', 'B'), label_size = 12, ncol=1, rel_heights = c(2, 1))
 ggsave("Figures/Figure3.png", height=15, width=10)
-

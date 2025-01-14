@@ -29,3 +29,7 @@ boxplotTheme<-theme_classic()+
         axis.text.x  = element_text(size=14, color="black"),
         legend.position = "none"
     )
+
+palette_models1 <- group.colors <- c(EEOS = "#154360", MLM="#FF5733", LM="#FFC300", Productivity="#1ABC9C")
+palette_models2 <- group.colors <- c(B_predicted = "#154360", B_rf="#FF5733", B_lm="#FFC300", e="#1ABC9C")
+palette_models3 <- group.colors <- c(t = "#154360", t_rf="#FF5733", t_lm="#FFC300", t_mte="#1ABC9C")
