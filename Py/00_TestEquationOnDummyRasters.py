@@ -1,5 +1,7 @@
 import rasterio
 import time
+import numpy as np
+
 
 # Open raster and plot
 S = rasterio.open("math_raster_a.tif").read(1)

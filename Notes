@@ -1,0 +1,8 @@
+ggplot()+
+    geom_point(data=vars, aes(x=((b*18)/0.45), y=B_predicted))
+
+
+    #https://academic.oup.com/bioscience/article/62/10/911/238201
+    # 0.45 carbon to biomass ratio
+    # 18 mj per kg gross biomass energy content
+    #energy = (kg of C per year x 18mj/kg) /0.45 (C-biomass ratio)

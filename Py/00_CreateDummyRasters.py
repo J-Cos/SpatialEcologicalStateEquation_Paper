@@ -1,6 +1,7 @@
 #########################
 #create dummy rasters
 ######################
+# first activate EEOS-env conda environment and then run python3
 
 # Import modules
 import numpy as np

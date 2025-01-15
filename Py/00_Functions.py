@@ -103,14 +103,18 @@ def biomass(s,power=4/3):
     s are state variables, call S, N, or E
     power is by default 4/3, but can be changed to test other scaling relationships
     '''
-    # get METE lambdas
-    l = mete_lambdas(s)
-    # Get normalization
-    z = zfun(l,s)
-    # Do the required integral in log space
-    b = s['S']*integrate.quad(lambda loge: np.exp((power+1)*loge)*nRsum(np.exp(loge),l,s),0,np.log(s['E']))[0]
-    # Normalize and return
-    return b/z
+    if np.isnan(s['E']) | np.isnan(s['S']) | np.isnan(s['N']):
+        b=np.nan
+        return b
+    else:
+        # get METE lambdas
+        l = mete_lambdas(s)
+        # Get normalization
+        z = zfun(l,s)
+        # Do the required integral in log space
+        b = s['S']*integrate.quad(lambda loge: np.exp((power+1)*loge)*nRsum(np.exp(loge),l,s),0,np.log(s['E']))[0]
+        # Normalize and return
+        return b/z
 
 def biomass_approx(s,order=0):
     '''The approximation for the biomass equation with power=4/3

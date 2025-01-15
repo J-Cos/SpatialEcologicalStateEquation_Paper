@@ -14,7 +14,9 @@ ggplot() +
     geom_spatvector(data=adir)+
     geom_spatraster(data = vars, aes(fill=e))+
     geom_spatvector(data=boundary)+
-    scale_fill_manual(values=c("#56ddc5", "#ff3db7", "#4699dd"), na.value = "transparent")
+    scale_fill_manual(
+        #values=c("#56ddc5", "#ff3db7", "#4699dd"), 
+        na.value = "transparent")
 
 
 #calculate deviation
